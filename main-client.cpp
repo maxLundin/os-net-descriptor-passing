@@ -40,8 +40,8 @@ int main(int argc, char **argv) {
         auto read_ans1 = socket.read_fd();
         Printer::printrln(std::cout, "Got pipe: ", read_ans1);
 
-        Pipe *pipe_write = make_pipe(read_ans, 1);
-        Pipe *pipe_read = make_pipe(read_ans1, 0);
+        std::unique_ptr<Pipe> pipe_write(make_pipe(read_ans, 1));
+        std::unique_ptr<Pipe> pipe_read(make_pipe(read_ans1, 0));
 
         pipe_write->write(request);
 
