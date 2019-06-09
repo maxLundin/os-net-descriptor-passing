@@ -31,7 +31,7 @@ public:
 
     int read_fd();
 
-    void write_fd();
+    void write_fd(int out_fd);
 
     void close();
 

@@ -13,6 +13,6 @@ if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
 endif ()
 
 
-add_executable(passing-server helper.cpp helper.h Socket.cpp Socket.h main-server.cpp Fifo.cpp Fifo.h)
+add_executable(passing-server helper.cpp helper.h Socket.cpp Socket.h main-server.cpp Fifo.cpp Fifo.h Pipe.cpp Pipe.h)
 
-add_executable(passing-client helper.cpp helper.h Socket.cpp Socket.h main-client.cpp Fifo.cpp Fifo.h)
+add_executable(passing-client helper.cpp helper.h Socket.cpp Socket.h main-client.cpp Fifo.cpp Fifo.h Pipe.cpp Pipe.h)

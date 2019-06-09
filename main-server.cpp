@@ -14,6 +14,7 @@
 #include "helper.h"
 #include "Socket.h"
 #include "Fifo.h"
+#include "Pipe.h"
 
 using Symb = Printer::Symbols;
 
@@ -47,34 +48,24 @@ int main(int argc, char **argv) {
 
         while (!flag) {
             socket.accept();
-            Fifo my_input_fifo(Fifo::flag::FLAG_LISTEN);
-            my_input_fifo.create();
+            Pipe_real my_input_pipe{};
+            my_input_pipe.create();
 
 
-            Fifo my_output_fifo(Fifo::flag::FLAG_SEND);
-            my_output_fifo.create();
+            Pipe_real my_output_pipe{};
+            my_output_pipe.create();
 
-            socket.write(my_input_fifo.to_string());
-            socket.write(my_output_fifo.to_string());
-            Printer::printrln(std::cout, "Fifo sent: ", my_input_fifo.to_string());
+            socket.write_fd(my_input_pipe.getfd(1));
+            socket.write_fd(my_output_pipe.getfd(0));
+            Printer::printrln(std::cout, "Pipe sent: ", my_input_pipe.to_string());
+            Printer::printrln(std::cout, "Pipe sent: ", my_output_pipe.to_string());
 
-            my_input_fifo.open();
-            my_output_fifo.open();
+            auto request = my_input_pipe.read();
 
-
-            Request request = my_input_fifo.read();
-            std::string res = my_input_fifo.raw_read(request.size);
-
-            Request request1{};
             std::string ans("Hello, ");
-            ans += res;
+            ans += request;
 
-            request1.size = ans.size();
-            request1.pid = getpid();
-
-            my_output_fifo.write(&request1, sizeof(request1));
-            my_output_fifo.write(std::string("Hello, ").append(res));
-            my_output_fifo.close();
+            my_output_pipe.write(ans);
         }
 
     } catch (std::runtime_error &e) {

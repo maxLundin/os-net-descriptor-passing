@@ -19,16 +19,3 @@ std::string prerror_str(const char *msg) {
     return ans;
 }
 
-void checker(int ret, const char *msg, int error_code) {
-    if (ret == error_code) {
-        std::string err_msg = prerror_str(msg);
-        std::cerr << err_msg << std::endl;
-        throw std::runtime_error(err_msg);
-    }
-}
-
-
-void checker(int ret, const std::string &msg, int error_code) {
-    checker(ret, msg.data(), error_code);
-}
-

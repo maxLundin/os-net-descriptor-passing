@@ -95,16 +95,29 @@ int Socket::accept() {
 std::pair<ssize_t, std::unique_ptr<char[]>> Socket::read() {
     Printer::print(std::cout, "Socket::read", Symb::End);
     std::unique_ptr<char[]> buffer(new char[BUFFER_SIZE + 1]);
-    ssize_t bytes_read = ::read(data_socket, buffer.get(), BUFFER_SIZE);
-    checker(bytes_read, "Error while reading");
+    memset(buffer.get(), 1, sizeof(char) * (BUFFER_SIZE));
+    ssize_t read_size = 0;
+    while ((size_t) read_size < BUFFER_SIZE) {
+        ssize_t bytes_read = ::read(data_socket, buffer.get() + read_size, BUFFER_SIZE - read_size);
+        checker(bytes_read, "Error while reading");
+        read_size += bytes_read;
+        if (buffer[read_size - 1] == '\0') {
+            break;
+        }
+    }
     buffer[BUFFER_SIZE] = 0;
-    return std::make_pair(bytes_read, std::move(buffer));
+    return std::make_pair(read_size, std::move(buffer));
 }
 
 void Socket::write(const std::string &data) {
     Printer::print(std::cout, "Socket::write", Symb::End);
-    int ret_write = ::write(data_socket, data.data(), std::min(BUFFER_SIZE, data.length() + 1));
-    checker(ret_write, "Unable to write");
+    ssize_t written = 0;
+    while ((size_t) written != std::min(BUFFER_SIZE, data.length() + 1)) {
+        ssize_t ret_write = ::write(data_socket, data.data() + written,
+                                    std::min(BUFFER_SIZE, data.length() + 1) - written);
+        checker(ret_write, "Unable to write");
+        written += ret_write;
+    }
 }
 
 void Socket::close() {
@@ -126,9 +139,51 @@ void Socket::listen() {
 }
 
 int Socket::read_fd() {
-    return 0;
+    msghdr message = {nullptr, 0, nullptr, 0, nullptr, 0, 0};
+    cmsghdr *structcmsghdr;
+    char buffer[CMSG_SPACE(sizeof(int))];
+    char duplicate[512];
+    bzero(buffer, sizeof(buffer));
+    iovec io{};
+    io.iov_base = &duplicate;
+    io.iov_len = sizeof(duplicate);
+
+    message.msg_control = buffer;
+    message.msg_controllen = sizeof(buffer);
+    message.msg_iov = &io;
+    message.msg_iovlen = 1;
+
+    checker(recvmsg(data_socket, &message, 0), "recvmsg error");
+
+
+    structcmsghdr = CMSG_FIRSTHDR(&message);
+    int received_fd;
+    memcpy(&received_fd, (int *) CMSG_DATA(structcmsghdr), sizeof(int));
+    return received_fd;
 }
 
-void Socket::write_fd() {
+void Socket::write_fd(int out_fd) {
+    msghdr msg = {nullptr, 0, nullptr, 0, nullptr, 0, 0};
+    char buf[CMSG_SPACE(sizeof(out_fd))];
+    memset(buf, 0, sizeof(buf));
 
+    iovec io{};
+    io.iov_base = (void *) "";
+    io.iov_len = 1;
+
+    msg.msg_iov = &io;
+    msg.msg_iovlen = 1;
+    msg.msg_control = buf;
+    msg.msg_controllen = sizeof(buf);
+
+    cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN(sizeof(out_fd));
+
+    memmove(CMSG_DATA(cmsg), &out_fd, sizeof(out_fd));
+
+    msg.msg_controllen = cmsg->cmsg_len;
+
+    checker(sendmsg(data_socket, &msg, 0), "sendmsg error");
 }

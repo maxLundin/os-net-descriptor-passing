@@ -11,6 +11,7 @@
 #include "helper.h"
 #include "Socket.h"
 #include "Fifo.h"
+#include "Pipe.h"
 
 using Symb = Printer::Symbols;
 
@@ -34,28 +35,18 @@ int main(int argc, char **argv) {
         std::cin >> request;
         socket.connect();
         socket.write(request);
-        auto read_ans = socket.read();
-        Printer::printrln(std::cout, "Got fifo: ", read_ans.second.get());
-        auto read_ans1 = socket.read();
-        Printer::printrln(std::cout, "Got fifo: ", read_ans1.second.get());
+        auto read_ans = socket.read_fd();
+        Printer::printrln(std::cout, "Got pipe: ", read_ans);
+        auto read_ans1 = socket.read_fd();
+        Printer::printrln(std::cout, "Got pipe: ", read_ans1);
 
-        Fifo request_in_fifo(std::string(read_ans.second.get(), read_ans.first), Fifo::flag::FLAG_SEND);
-        Fifo request_out_fifo(std::string(read_ans1.second.get(), read_ans1.first), Fifo::flag::FLAG_LISTEN);
-        request_in_fifo.open();
-        request_out_fifo.open();
+        Pipe *pipe_write = make_pipe(read_ans, 1);
+        Pipe *pipe_read = make_pipe(read_ans1, 0);
 
+        pipe_write->write(request);
 
-        Request request1{};
-        request1.size = request.size();
-        request1.pid = getpid();
-        request_in_fifo.write(&request1, sizeof(request1));
-        request_in_fifo.write(request);
-        request_in_fifo.close();
-
-        Request request2{};
-        request2 = request_out_fifo.read();
-        std::string answer = request_out_fifo.raw_read(request2.size);
-        std::cout << answer << std::endl;
+        auto ans = pipe_read->read();
+        std::cout << ans << std::endl;
     } catch (std::runtime_error &e) {
         std::cerr << "Client failed" << std::endl;
         std::cerr << e.what() << std::endl;
